@@ -1,0 +1,35 @@
+# Falcon FT, Merlin specs from http://spaceflight101.com/spacerockets/falcon-9-ft/
+merlin1D = {
+    'isp_sl' : 282,   #sec
+    'isp_vac' : 311,  #sec
+    'thrust_sl' : 756000.,    # N
+    'thrust_vac' : 825000.,   # N  
+    'min_throttle': 55, # %       
+    'max_throttle': 55, # %        
+}
+merlin1D['mass_flow_rate'] = merlin1D['thrust_sl']/(g_sl*merlin1D['isp_sl'])
+
+stage1 = {
+    'engines' : 9,
+    'length': 41.2,     # m
+    'interstage_length' : 6.75, # m
+    'diameter' : 3.66,  # m
+    'inert_mass' : 22200,    # kg
+    'propellant_mass': 409500,  # kg  
+}
+
+stage2_and_payload = {
+    'inert_mass':4000,  # kg
+    'propellant_mass':103500,   # kg
+    'fairing_mass': 1750,   #kg
+    'payload_mass': 5000,   # less than 50% caoability for og2
+}
+
+stage2_and_payload['total_mass'] = stage2_and_payload['inert_mass'] + \
+                                        stage2_and_payload['propellant_mass'] + \
+                                        stage2_and_payload['fairing_mass'] + \
+                                        stage2_and_payload['payload_mass']
+
+fairing = {
+    'mass': 1750,   # kg
+}

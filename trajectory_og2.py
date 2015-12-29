@@ -1,4 +1,8 @@
 import matplotlib.pyplot as plt
+from numpy import arcsin
+from math import pi, cos, sin
+
+
 
 #time,speed, altitude, range
 actual_stage1_trajectory = [
@@ -73,8 +77,8 @@ range_values = [
 
 fig = plt.figure()
 ax1 = fig.add_subplot(111)
-trajectory_s1, = ax1.plot([pi[0] for pi in actual_stage1_trajectory], [pi[2] for pi in actual_stage1_trajectory], label='OG2 S1 Altitude')
-trajectory_s2, = ax1.plot([pi[0] for pi in actual_stage2_trajectory], [pi[2] for pi in actual_stage2_trajectory], label='OG2 S2 Altitude')
+trajectory_s1, = ax1.plot([i[0] for i in actual_stage1_trajectory], [i[2] for i in actual_stage1_trajectory], label='OG2 S1 Altitude')
+trajectory_s2, = ax1.plot([i[0] for i in actual_stage2_trajectory], [i[2] for i in actual_stage2_trajectory], label='OG2 S2 Altitude')
 ax1.set_xlabel('Time (s)')
 ax1.set_ylabel('Altitude (km)')
 plt.legend(handles=[trajectory_s1, trajectory_s2], loc='center left')
@@ -82,18 +86,31 @@ plt.show()
 
 fig = plt.figure()
 ax1 = fig.add_subplot(111)
-trajectory_s1, = ax1.plot([pi[0] for pi in actual_stage1_trajectory], [pi[1]*5./18 for pi in actual_stage1_trajectory], label='OG2 S1 Speed')
-trajectory_s2, = ax1.plot([pi[0] for pi in actual_stage2_trajectory], [pi[1]*5./18 for pi in actual_stage2_trajectory], label='OG2 S2 Speed')
+trajectory_s1, = ax1.plot([i[0] for i in actual_stage1_trajectory], [i[1]*5./18 for i in actual_stage1_trajectory], label='OG2 S1 Speed')
+trajectory_s2, = ax1.plot([i[0] for i in actual_stage2_trajectory], [i[1]*5./18 for i in actual_stage2_trajectory], label='OG2 S2 Speed')
+velocity_vx_s1, = ax1.plot([i[0] for i in actual_stage1_trajectory], [ i[1]*(5./18)*cos(arcsin(i[2]*1000./((i[1]+0.00001)*(5./18)*(i[0]+0.0001)))) for i in actual_stage1_trajectory], label='S1 Vx')
+velocity_vy_s1, = ax1.plot([i[0] for i in actual_stage1_trajectory], [ i[1]*(5./18)*sin(arcsin(i[2]*1000./((i[1]+0.00001)*(5./18)*(i[0]+0.0001)))) for i in actual_stage1_trajectory], label='S1 Vy')
+velocity_vx_s2, = ax1.plot([i[0] for i in actual_stage2_trajectory], [ i[1]*(5./18)*cos(arcsin(i[2]*1000./(i[1]*(5./18)*(i[0]+0.0001)))) for i in actual_stage2_trajectory], label='Vx')
+velocity_vy_s2, = ax1.plot([i[0] for i in actual_stage2_trajectory], [ i[1]*(5./18)*sin(arcsin(i[2]*1000./(i[1]*(5./18)*(i[0]+0.0001)))) for i in actual_stage2_trajectory], label='Vy')
 ax1.set_xlabel('Time (s)')
 ax1.set_ylabel('Speed (m/s)')
-plt.legend(handles=[trajectory_s1, trajectory_s2], loc='center left')
+plt.legend(handles=[trajectory_s1, trajectory_s2, velocity_vx_s1, velocity_vy_s1, velocity_vx_s2, velocity_vy_s2], loc='upper left')
 plt.show()
 
 
 fig = plt.figure()
 ax1 = fig.add_subplot(111)
-trajectory_both, = ax1.plot([pi[3] for pi in range_values], [pi[1] for pi in range_values], label='OG2 S1 Trajectory')
+trajectory_both, = ax1.plot([i[3] for i in range_values], [i[1] for i in range_values], label='OG2 S1 Trajectory')
 ax1.set_xlabel('Range (km)')
 ax1.set_ylabel('Altitude (km)')
 plt.legend(handles=[trajectory_both], loc='bottom right')
+plt.show()
+
+
+fig = plt.figure()
+ax1 = fig.add_subplot(111)
+theta_plot, = ax1.plot([i[0] for i in actual_stage2_trajectory], [ (180/pi)*arcsin(i[2]*1000/(i[1]*(5./18)*(i[0]+0.0001))) for i in actual_stage2_trajectory], label='OG2 S2 Theta')
+ax1.set_xlabel('Time (s)')
+ax1.set_ylabel('Theta (degrees)')
+plt.legend(handles=[theta_plot], loc='bottom right')
 plt.show()
