@@ -5,16 +5,16 @@ from numpy import zeros, arange, exp, arcsin
 h = .1          # stepsize (sec)
 #g = 9.81        # m/sec2
 
-mass = 200    #  kg
+mass = 200.    #  kg
 ref_area = 0.15   #  m^2
 draf_coefficient = 0.3    # drag coefficient
 air_density_sl = 1.22  # density of air kg/m^3
-H_FOR_DRAG = 7000   # m
+H_FOR_DRAG = 7000.   # m
 ATMOSPHERE_HEIGHT = 90000 #90 KM
 G = 6.672e-11
 Re = 6370e3
 Me = 5.976e24
-g_sl = 9.81
+
 
 x0,y0,v0 = 0., Re, 4000.
 theta = 70.  # degrees
@@ -55,6 +55,8 @@ def get_drag_acceleration(vx, vy, y):
     f_drag = (1./2) * air_density * draf_coefficient * ref_area * v**2    
     a_drag = f_drag/mass
     
+    g_sl = G*Me/Re**2
+    
     global max_drag_acceleration
     if a_drag > max_drag_acceleration*g_sl:
         max_drag_acceleration = a_drag / g_sl
@@ -79,6 +81,9 @@ def get_gravity_acceleration(x,y):
     return [-g*x/r, -g*y/r]    
     
 def get_acceleration(x, y, vx, vy):
+    
+    g_sl = G*Me/Re**2
+    
     a_drag = get_drag_acceleration(vx, vy, y)
     a_gravity = get_gravity_acceleration(x,y)
     a = [a_drag[0]+a_gravity[0], a_drag[1]+a_gravity[1]]
@@ -142,7 +147,7 @@ def get_trajectory(x0, y0, v0, theta):
     global curr_drag_acceleration
     global curr_acceleration
     
-    while sqrt(args0[POS_X]**2 + args0[POS_Y]**2) >= Re and t < 5000: 
+    while sqrt(args0[POS_X]**2 + args0[POS_Y]**2) >= Re and t < 10000: 
         tmp_args = list(args0)
         tmp_args.append(curr_drag_acceleration)            
         tmp_args.append(curr_acceleration)
@@ -215,7 +220,7 @@ plt.show()
 fig = plt.figure()
 ax1 = fig.add_subplot(111)
 #plot_no_drag, = ax1.plot([ti for ti,x0i in trajectory_drag], [abs(x0i[POS_VX]) for ti,x0i in trajectory_drag], label='Vx under drag')
-plot_drag, = ax1.plot([ti for ti,x0i in trajectory_drag], [(x0i[POS_Y] - Re)/1000. for ti,x0i in trajectory_drag], 'r', label='Altitude')
+plot_drag, = ax1.plot([ti for ti,x0i in trajectory_drag], [(sqrt(x0i[POS_X]**2 + x0i[POS_Y]**2) - Re)/1000. for ti,x0i in trajectory_drag], 'r', label='Altitude')
 ax1.set_xlabel('Time (s)')
 ax1.set_ylabel('Altitude (Km)')
 plt.legend(handles=[plot_drag])
