@@ -1,3 +1,6 @@
+# Simulation of Apollo rentry
+#  under the guidance of nasaspaceflight user meithan
+
 import matplotlib.pyplot as plt
 from math import cos, sin, pi, sqrt
 from numpy import zeros, arange, exp, arcsin, arccos
