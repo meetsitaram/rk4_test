@@ -3,9 +3,9 @@
 
 import matplotlib.pyplot as plt
 from math import cos, sin, pi, sqrt
-from numpy import zeros, arange, exp, arcsin, arccos
+from numpy import zeros, exp, arcsin
 
-h = .1          # stepsize used in RK4 (sec)
+h = .01          # stepsize used in RK4 (sec)
 
 mass = 5621.    #  mass of object (kg)
 ref_area = 11.631   #  reference cross section area - used for drag (m^2)
@@ -16,11 +16,10 @@ ATMOSPHERE_HEIGHT = 90000 # 90 KM - we can ignore air drag beyond this
 G = 6.672e-11   # universal gravitation constant
 Re = 6372e3     # radius of earch (m)
 Me = 5.976e24   # mass of earth (kg)
-fpa = -6.2  # flight path angle
+fpa = -6.1  # flight path angle
 
 
-x0,y0,v0 = 0., Re + 121.8e3, 11130.
-#fpa = -5.6
+x0,y0,v0 = 0., Re + 121.8e3, 11130.     # initial altitude (m), Initial speed (m/s)
 
 POS_X = 0
 POS_Y = 1
@@ -191,7 +190,7 @@ curr_drag_acceleration = 0.
 
 ENABLE_DRAG = True
 trajectory = get_trajectory(x0, y0, v0, fpa) 
-tmp_plot_1, = ax1.plot([x0i[POS_X]/1000. for ti,x0i in trajectory], [x0i[POS_Y]/1000. for ti,x0i in trajectory], label='fpa ' + str(fpa))
+tmp_plot_1, = ax1.plot([x0i[POS_X]/1000. for ti,x0i in trajectory], [x0i[POS_Y]/1000. for ti,x0i in trajectory], color='r', label='fpa ' + str(fpa))
 tmp_plot_2, = ax2.plot([ti/60. for ti,x0i in trajectory], [sqrt(x0i[POS_VX]**2 + x0i[POS_VY]**2)/1000. for ti,x0i in trajectory], label='fpa ' + str(fpa))
 tmp_plot_3, = ax3.plot([ti/60. for ti,x0i in trajectory], [x0i[TMP_POS_A] for ti,x0i in trajectory], label='max ' + str(round(max_acceleration,1)) + 'g')
 tmp_plot_4, = ax4.plot([ti/60. for ti,x0i in trajectory], [(sqrt(x0i[POS_X]**2 + x0i[POS_Y]**2) - Re)/1000. for ti,x0i in trajectory], label='fpa ' + str(fpa))
@@ -201,6 +200,11 @@ ax3_handles.append(tmp_plot_3)
 ax4_handles.append(tmp_plot_4)
 
 earth = ax1.add_artist(plt.Circle((0,0),Re/1000.0,color="b",fill=True,label='Earth'))
+ax1.add_artist(plt.Circle((0,0),(Re/1.0e3+25),color="b",alpha=0.1))
+ax1.add_artist(plt.Circle((0,0),(Re/1.0e3+50),color="b",alpha=0.05))
+ax1.add_artist(plt.Circle((0,0),(Re/1.0e3+90),color="b",alpha=0.04))
+
+  
 ax1_handles.append(earth)
 ax1.set_xlabel('X (Km)')
 ax1.set_ylabel('Y (Km)')
