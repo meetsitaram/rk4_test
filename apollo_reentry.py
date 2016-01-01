@@ -1,19 +1,19 @@
 import matplotlib.pyplot as plt
 from math import cos, sin, pi, sqrt
-from numpy import zeros, arange, exp, arcsin
+from numpy import zeros, arange, exp, arcsin, arccos
 
-h = .1          # stepsize (sec)
-#g = 9.81        # m/sec2
+h = .1          # stepsize used in RK4 (sec)
 
-mass = 5621.    #  kg
-ref_area = 11.631   #  m^2
+mass = 5621.    #  mass of object (kg)
+ref_area = 11.631   #  reference cross section area - used for drag (m^2)
 draf_coefficient = 0.3    # drag coefficient
-air_density_sl = 1.2  # density of air kg/m^3
-H_FOR_DRAG = 7000.   # m
-ATMOSPHERE_HEIGHT = 90000 #90 KM
-G = 6.672e-11
-Re = 6372e3
-Me = 5.976e24
+air_density_sl = 1.2  # density of air (kg/m^3)
+H_FOR_DRAG = 7000.   # H value used in drag model (m)
+ATMOSPHERE_HEIGHT = 90000 # 90 KM - we can ignore air drag beyond this
+G = 6.672e-11   # universal gravitation constant
+Re = 6372e3     # radius of earch (m)
+Me = 5.976e24   # mass of earth (kg)
+fpa = -6.2  # flight path angle
 
 
 x0,y0,v0 = 0., Re + 121.8e3, 11130.
@@ -30,7 +30,7 @@ TMP_POS_A = 5
 ENABLE_DRAG = True
 
 max_drag_acceleration = 0. # in g
-max_acceleration = 0.
+max_acceleration = 0. # in g
 max_altitude = 0.
 down_range = 0.
 terminal_speed = 0.
@@ -64,9 +64,6 @@ def get_drag_acceleration(vx, vy, x, y):
         
     global curr_drag_acceleration 
     curr_drag_acceleration = a_drag / g_sl
-    
-#    if curr_drag_acceleration > 100 and y - Re > 0:
-#        print vx, vy, y - Re, a_drag
         
     return [-a_drag*vx/v, -a_drag*vy/v]
    
@@ -99,7 +96,7 @@ def get_acceleration(x, y, vx, vy):
         
     return a
 
-    
+#Derivative function   
 def f(t,x0):
 
     ax,ay = get_acceleration(x0[POS_X], x0[POS_Y], x0[POS_VX], x0[POS_VY] )
@@ -112,6 +109,7 @@ def f(t,x0):
         
     return res
     
+# 4th order Runge-Kutta
 def RK4(t,x0):
     xtemp = zeros(NUM_VARS)
         
@@ -161,8 +159,10 @@ def get_trajectory(x0, y0, v0, theta):
             max_altitude = altitude
 
         global down_range
-        #tmp_range = 2*Re*arcsin((sqrt((args0[POS_X]-x0)**2 + (args0[POS_Y]-y0)**2))/(2*Re))
-        tmp_range = args0[POS_X]
+        #get arc distance
+        tmp_range = 2*Re*arcsin((sqrt((args0[POS_X]-x0)**2 + (args0[POS_Y]-y0)**2))/(2*Re))
+        #tmp_range = Re*arccos( 1. - 1./2*((args0[POS_X]-x0)/Re)**2 - 1./2*((args0[POS_Y]-y0)/Re)**2 )
+        #tmp_range = args0[POS_X]
         if tmp_range > down_range:
             down_range = tmp_range
         
@@ -173,37 +173,29 @@ def get_trajectory(x0, y0, v0, theta):
 
 fig1 = plt.figure()
 fig1, ((ax1,ax2),(ax4, ax3)) = plt.subplots(2, 2)
-#ax1 = fig1.add_subplot(211)
 ax1_handles = []
-
-#ax2 = fig1.add_subplot(212)
 ax2_handles = []
-
-#ax3 = fig1.add_subplot(221)
 ax3_handles = []
-
-#ax4 = fig1.add_subplot(222)
 ax4_handles = []
-for fpa in [-6.15]:
-        
-    max_drag_acceleration = 0. # in g
-    max_acceleration = 0.
-    max_altitude = 0.
-    down_range = 0.
-    terminal_speed = 0.
-    curr_acceleration = 0.
-    curr_drag_acceleration = 0.
-    
-    ENABLE_DRAG = True
-    trajectory = get_trajectory(x0, y0, v0, fpa) 
-    tmp_plot_1, = ax1.plot([x0i[POS_X]/1000. for ti,x0i in trajectory], [x0i[POS_Y]/1000. for ti,x0i in trajectory], label='fpa ' + str(fpa))
-    tmp_plot_2, = ax2.plot([ti/60. for ti,x0i in trajectory], [sqrt(x0i[POS_VX]**2 + x0i[POS_VY]**2)/1000. for ti,x0i in trajectory], label='fpa ' + str(fpa))
-    tmp_plot_3, = ax3.plot([ti/60. for ti,x0i in trajectory], [x0i[TMP_POS_A] for ti,x0i in trajectory], label='max ' + str(round(max_acceleration,1)) + 'g')
-    tmp_plot_4, = ax4.plot([ti/60. for ti,x0i in trajectory], [(sqrt(x0i[POS_X]**2 + x0i[POS_Y]**2) - Re)/1000. for ti,x0i in trajectory], label='fpa ' + str(fpa))
-    ax1_handles.append(tmp_plot_1)
-    ax2_handles.append(tmp_plot_2)
-    ax3_handles.append(tmp_plot_3)
-    ax4_handles.append(tmp_plot_4)
+
+max_drag_acceleration = 0. # in g
+max_acceleration = 0.
+max_altitude = 0.
+down_range = 0.
+terminal_speed = 0.
+curr_acceleration = 0.
+curr_drag_acceleration = 0.
+
+ENABLE_DRAG = True
+trajectory = get_trajectory(x0, y0, v0, fpa) 
+tmp_plot_1, = ax1.plot([x0i[POS_X]/1000. for ti,x0i in trajectory], [x0i[POS_Y]/1000. for ti,x0i in trajectory], label='fpa ' + str(fpa))
+tmp_plot_2, = ax2.plot([ti/60. for ti,x0i in trajectory], [sqrt(x0i[POS_VX]**2 + x0i[POS_VY]**2)/1000. for ti,x0i in trajectory], label='fpa ' + str(fpa))
+tmp_plot_3, = ax3.plot([ti/60. for ti,x0i in trajectory], [x0i[TMP_POS_A] for ti,x0i in trajectory], label='max ' + str(round(max_acceleration,1)) + 'g')
+tmp_plot_4, = ax4.plot([ti/60. for ti,x0i in trajectory], [(sqrt(x0i[POS_X]**2 + x0i[POS_Y]**2) - Re)/1000. for ti,x0i in trajectory], label='fpa ' + str(fpa))
+ax1_handles.append(tmp_plot_1)
+ax2_handles.append(tmp_plot_2)
+ax3_handles.append(tmp_plot_3)
+ax4_handles.append(tmp_plot_4)
 
 earth = ax1.add_artist(plt.Circle((0,0),Re/1000.0,color="b",fill=True,label='Earth'))
 ax1_handles.append(earth)
@@ -216,9 +208,7 @@ ax3.set_ylabel('Acceleration (g)')
 ax4.set_xlabel('Time (min)')
 ax4.set_ylabel('Altitude (Km)')
 ax1.legend(handles=ax1_handles, loc='upper right')
-#ax2.legend(handles=ax2_handles, loc='upper right')
 ax3.legend(handles=ax3_handles, loc='upper right')
-#ax4.legend(handles=ax4_handles, loc='upper right')
 plt.show()
 
 
