@@ -7,8 +7,6 @@ from numpy import zeros, exp, arcsin
 
 h = .01          # stepsize used in RK4 (sec)
 
-mass = 5621.    #  mass of object (kg)
-ref_area = 11.631   #  reference cross section area - used for drag (m^2)
 draf_coefficient = 0.3    # drag coefficient
 air_density_sl = 1.2  # density of air (kg/m^3)
 H_FOR_DRAG = 7000.   # H value used in drag model (m)
@@ -16,10 +14,32 @@ ATMOSPHERE_HEIGHT = 90000 # 90 KM - we can ignore air drag beyond this
 G = 6.672e-11   # universal gravitation constant
 Re = 6372e3     # radius of earch (m)
 Me = 5.976e24   # mass of earth (kg)
-fpa = -6.1  # flight path angle
 
 
-x0,y0,v0 = 0., Re + 121.8e3, 11130.     # initial altitude (m), Initial speed (m/s)
+g_sl = 9.81
+
+inert_mass = 18000.
+#inert_mass = 22200.
+propellant_mass = 409500.    # kg
+#propellant_mass = 409500.    # kg
+merlin_1D_thrust_sl = 756000.
+thrust_sl = 9.*merlin_1D_thrust_sl # N,
+merlin_1D_specific_impulse = 282.   #sec
+burn_time_1 = 100.
+burn_time_2_start =  101.
+burn_time_2_end = 280.
+burn_time_3_start = 390.
+burn_time_3_end = 440.
+diameter = 3.66
+ref_area = diameter**2 * pi / 4.   #  reference cross section area - used for drag (m^2)
+flow_rate = 9.*merlin_1D_thrust_sl/(g_sl * merlin_1D_specific_impulse)
+mass = inert_mass + propellant_mass
+throttle = 1.
+
+second_stage_cut_off = 0.
+
+
+x0,y0,v0 = 0., Re, 0.     # initial altitude (m), Initial speed (m/s)
 
 POS_X = 0
 POS_Y = 1
@@ -39,6 +59,73 @@ terminal_speed = 0.
 curr_acceleration = 0.
 curr_drag_acceleration = 0.
 
+engines_on = True
+
+def get_rocket_acceleration(x,y,t, vx, vy):
+    a_rocket = [0., 0.]
+
+    global propellant_mass    
+    if propellant_mass <= 0:
+        return [0., 0.]
+
+    global h, mass, flow_rate
+            
+    global burn_time_1, burn_time_2_start, burn_time_2_end, throttle, second_stage_cut_off
+    global engines_on
+    
+    thrust_total = 0.
+    thrust_angle = 90.
+    engines_on = False
+    if propellant_mass  > h * flow_rate:
+        if t >= 0 and t <= burn_time_1:
+            engines_on = True
+            flow_rate = 9.*throttle*merlin_1D_thrust_sl/(g_sl * merlin_1D_specific_impulse)
+            thrust_sl = 9.*throttle*merlin_1D_thrust_sl # N,
+            thrust_total = thrust_sl
+            thrust_angle = 60.
+        elif t >= burn_time_2_start and t <= burn_time_2_end:  
+            engines_on = True
+            second_stage_cut_off = t
+            flow_rate = 3.*throttle*merlin_1D_thrust_sl/(g_sl * merlin_1D_specific_impulse)
+            thrust_sl = 3.*throttle*merlin_1D_thrust_sl # N,
+            thrust_total = 1.1*thrust_sl
+            
+            #print 't:', thrust_total/(mass*g_sl)
+            
+            desired_ay = 0.4*g_sl
+            a_max = thrust_total/mass
+            
+            if desired_ay < a_max:
+                thrust_angle = 180*arcsin(desired_ay/a_max)/pi 
+                #print 'thrust_angle', thrust_angle
+                
+        elif t >= burn_time_3_start and t <= burn_time_3_end:
+            engines_on = True
+            flow_rate = 3.*throttle*merlin_1D_thrust_sl/(g_sl * merlin_1D_specific_impulse)
+            thrust_sl = 3.*throttle*merlin_1D_thrust_sl # N,
+            thrust_total = 1.1*thrust_sl 
+            thrust_angle = -4
+            
+            
+            
+            #print thrust_angle, propellant_mass
+        
+#    v = sqrt(vx**2 + vy**2)
+#    if v > 7000 and v < 8000:
+#        print v
+    
+    a_rocket_total = throttle*thrust_total/mass
+        
+    #r = sqrt(x*x+y*y)
+    #altitude = r - Re
+    #if altitude < Re:
+    #    return [0., 0.]
+        
+
+    a_rocket = [a_rocket_total*cos(pi*thrust_angle/180.), a_rocket_total*sin(pi*thrust_angle/180.)]            
+        
+    return a_rocket
+        
 def get_drag_acceleration(vx, vy, x, y):
     if not ENABLE_DRAG:
         return [0., 0.]
@@ -52,6 +139,9 @@ def get_drag_acceleration(vx, vy, x, y):
         return [0., 0.]
         
     v = sqrt(vx**2 + vy**2)
+    
+    if v == 0:
+        return [0., 0.]
     
     air_density = air_density_sl * exp ( - h / H_FOR_DRAG)
     
@@ -80,13 +170,15 @@ def get_gravity_acceleration(x,y):
 
     return [-g*x/r, -g*y/r]    
     
-def get_acceleration(x, y, vx, vy):
+def get_acceleration(x, y, vx, vy, t):
     
     g_sl = G*Me/Re**2
     
     a_drag = get_drag_acceleration(vx, vy, x, y)
     a_gravity = get_gravity_acceleration(x,y)
-    a = [a_drag[0]+a_gravity[0], a_drag[1]+a_gravity[1]]
+    a_rocket = get_rocket_acceleration(x,y,t,vx, vy)
+    
+    a = [a_drag[0]+a_gravity[0]+a_rocket[0], a_drag[1]+a_gravity[1]+a_rocket[1]]
     
     a_magnitude = sqrt(a[0]**2 + a[1]**2)
     global max_acceleration
@@ -95,13 +187,13 @@ def get_acceleration(x, y, vx, vy):
         
     global curr_acceleration 
     curr_acceleration = a_magnitude / g_sl    
-        
+
     return a
 
 #Derivative function   
 def f(t,x0):
 
-    ax,ay = get_acceleration(x0[POS_X], x0[POS_Y], x0[POS_VX], x0[POS_VY] )
+    ax,ay = get_acceleration(x0[POS_X], x0[POS_Y], x0[POS_VX], x0[POS_VY] , t)
     
     res = zeros(NUM_VARS)
     res[POS_X] = x0[POS_VX]
@@ -133,13 +225,13 @@ def RK4(t,x0):
     
     return x0
    
-def get_trajectory(x0, y0, v0, theta):
+def get_trajectory(x0, y0, v0):
 
     args0 = zeros(NUM_VARS)
     args0[POS_X] = x0
     args0[POS_Y] = y0
-    args0[POS_VX] = v0*cos(pi*theta/180.)
-    args0[POS_VY] = v0*sin(pi*theta/180.)
+    args0[POS_VX] = 0.
+    args0[POS_VY] = 0.
     
     
     trajectory = []
@@ -148,7 +240,7 @@ def get_trajectory(x0, y0, v0, theta):
     global curr_drag_acceleration
     global curr_acceleration
     
-    while sqrt(args0[POS_X]**2 + args0[POS_Y]**2) >= Re and t < 700: 
+    while sqrt(args0[POS_X]**2 + args0[POS_Y]**2) >= Re and t < 9000: 
         tmp_args = list(args0)
         tmp_args.append(curr_drag_acceleration)            
         tmp_args.append(curr_acceleration)
@@ -168,7 +260,20 @@ def get_trajectory(x0, y0, v0, theta):
         if tmp_range > down_range:
             down_range = tmp_range
         
+        global mass, inert_mass,propellant_mass
+        
+        global burn_time_1, burn_time_2_start, burn_time_2_end
+        if propellant_mass > h*flow_rate and engines_on == True:
+            propellant_mass = propellant_mass - throttle*flow_rate*h
+        
+        if propellant_mass <=  0:
+            mass = inert_mass 
+        else:
+            mass = inert_mass + propellant_mass
+        
         t = t + h
+        
+        
         args0 = RK4(t,args0)
         
     return trajectory
@@ -189,13 +294,17 @@ curr_acceleration = 0.
 curr_drag_acceleration = 0.
 
 ENABLE_DRAG = True
-trajectory = get_trajectory(x0, y0, v0, fpa) 
-tmp_plot_1, = ax1.plot([x0i[POS_X]/1000. for ti,x0i in trajectory], [x0i[POS_Y]/1000. for ti,x0i in trajectory], color='r', label='fpa ' + str(fpa))
-tmp_plot_2, = ax2.plot([ti/60. for ti,x0i in trajectory], [sqrt(x0i[POS_VX]**2 + x0i[POS_VY]**2)/1000. for ti,x0i in trajectory], label='fpa ' + str(fpa))
+trajectory = get_trajectory(x0, y0, v0) 
+tmp_plot_1, = ax1.plot([x0i[POS_X]/1000. for ti,x0i in trajectory], [x0i[POS_Y]/1000. for ti,x0i in trajectory], color='r', label='')
+tmp_plot_2x, = ax2.plot([ti/60. for ti,x0i in trajectory], [sqrt(x0i[POS_VX]**2 + x0i[POS_VX]**2)/1000. for ti,x0i in trajectory], label='Vx')
+tmp_plot_2y, = ax2.plot([ti/60. for ti,x0i in trajectory], [sqrt(x0i[POS_VY]**2 + x0i[POS_VY]**2)/1000. for ti,x0i in trajectory], label='Vy')
+tmp_plot_2, = ax2.plot([ti/60. for ti,x0i in trajectory], [sqrt(x0i[POS_VX]**2 + x0i[POS_VY]**2)/1000. for ti,x0i in trajectory], label='V')
 tmp_plot_3, = ax3.plot([ti/60. for ti,x0i in trajectory], [x0i[TMP_POS_A] for ti,x0i in trajectory], label='max ' + str(round(max_acceleration,1)) + 'g')
-tmp_plot_4, = ax4.plot([ti/60. for ti,x0i in trajectory], [(sqrt(x0i[POS_X]**2 + x0i[POS_Y]**2) - Re)/1000. for ti,x0i in trajectory], label='fpa ' + str(fpa))
+tmp_plot_4, = ax4.plot([ti/60. for ti,x0i in trajectory], [(sqrt(x0i[POS_X]**2 + x0i[POS_Y]**2) - Re)/1000. for ti,x0i in trajectory], label='')
 ax1_handles.append(tmp_plot_1)
 ax2_handles.append(tmp_plot_2)
+ax2_handles.append(tmp_plot_2x)
+ax2_handles.append(tmp_plot_2y)
 ax3_handles.append(tmp_plot_3)
 ax4_handles.append(tmp_plot_4)
 
@@ -215,8 +324,10 @@ ax3.set_ylabel('Acceleration (g)')
 ax4.set_xlabel('Time (min)')
 ax4.set_ylabel('Altitude (Km)')
 ax1.legend(handles=ax1_handles, loc='upper right')
+ax2.legend(handles=ax2_handles, loc='lower right')
 ax3.legend(handles=ax3_handles, loc='upper right')
 plt.show()
 
 
 print 'max_drag_acceleration:', round(max_drag_acceleration,1), 'g, max_acceleration:', round(max_acceleration,1), 'g, max_altitude:', round(max_altitude/1000.), 'km, down_range:', round(down_range/1000.), 'km'
+print 'second_stage_cut_off:', second_stage_cut_off
