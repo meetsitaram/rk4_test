@@ -52,6 +52,10 @@ POS_VY = 3
 NUM_VARS = 4
 TMP_POS_A_DRAG = 4
 TMP_POS_A = 5
+TMP_POS_MASS = 6
+TMP_POS_THRUST = 7
+TMP_POS_FLOW_RATE = 8
+TMP_POS_THRUST_ANGLE = 9
 
 ENABLE_DRAG = True
 
@@ -62,6 +66,9 @@ down_range = 0.
 terminal_speed = 0.
 curr_acceleration = 0.
 curr_drag_acceleration = 0.
+current_thrust = 0.
+current_thrust_angle = 0.
+current_flow_rate = 0.
 
 engines_on = True
 
@@ -73,12 +80,14 @@ def get_rocket_acceleration(x,y,t, vx, vy):
         return [0., 0.]
 
     global h, mass, flow_rate
+    
+    #flow_rate = 0.
             
     global burn_time_1, burn_time_2_start, burn_time_2_end, throttle, second_stage_cut_off
     global engines_on
     
     thrust_total = 0.
-    thrust_angle = 90.
+    thrust_angle = 0.
     engines_on = False
     if propellant_mass  > h * flow_rate:
         if t >= 0 and t <= burn_time_1:
@@ -110,6 +119,15 @@ def get_rocket_acceleration(x,y,t, vx, vy):
             thrust_total = 1.1*thrust_vac 
             thrust_angle = -4
             
+    
+    global current_thrust, current_thrust_angle, current_flow_rate
+    current_thrust = throttle*thrust_total
+    current_flow_rate = flow_rate
+    current_thrust_angle = thrust_angle
+    if engines_on == False:
+        current_flow_rate = 0.
+        current_thrust = 0.
+        current_thrust_angle = 0.    
     
     a_rocket_total = throttle*thrust_total/mass
         
@@ -236,6 +254,10 @@ def get_trajectory(x0, y0, v0):
         tmp_args = list(args0)
         tmp_args.append(curr_drag_acceleration)            
         tmp_args.append(curr_acceleration)
+        tmp_args.append(mass)
+        tmp_args.append(current_thrust)
+        tmp_args.append(current_flow_rate)
+        tmp_args.append(current_thrust_angle)
         trajectory.append( (t, tmp_args) )        
         
         
@@ -271,11 +293,15 @@ def get_trajectory(x0, y0, v0):
     return trajectory
 
 fig1 = plt.figure()
-fig1, ((ax1,ax2),(ax4, ax3)) = plt.subplots(2, 2)
+fig1, ((ax1,ax5),(ax4, ax7), (ax2, ax6), (ax3, ax8)) = plt.subplots(4, 2)
 ax1_handles = []
 ax2_handles = []
 ax3_handles = []
 ax4_handles = []
+ax5_handles = []
+ax6_handles = []
+ax7_handles = []
+ax8_handles = []
 
 max_drag_acceleration = 0. # in g
 max_acceleration = 0.
@@ -284,6 +310,7 @@ down_range = 0.
 terminal_speed = 0.
 curr_acceleration = 0.
 curr_drag_acceleration = 0.
+current_thrust_angle = 0.
 
 ENABLE_DRAG = True
 trajectory = get_trajectory(x0, y0, v0) 
@@ -291,14 +318,21 @@ tmp_plot_1, = ax1.plot([x0i[POS_X]/1000. for ti,x0i in trajectory], [x0i[POS_Y]/
 tmp_plot_2x, = ax2.plot([ti/60. for ti,x0i in trajectory], [sqrt(x0i[POS_VX]**2 + x0i[POS_VX]**2)/1000. for ti,x0i in trajectory], label='Vx')
 tmp_plot_2y, = ax2.plot([ti/60. for ti,x0i in trajectory], [sqrt(x0i[POS_VY]**2 + x0i[POS_VY]**2)/1000. for ti,x0i in trajectory], label='Vy')
 tmp_plot_2, = ax2.plot([ti/60. for ti,x0i in trajectory], [sqrt(x0i[POS_VX]**2 + x0i[POS_VY]**2)/1000. for ti,x0i in trajectory], label='V')
-tmp_plot_3, = ax3.plot([ti/60. for ti,x0i in trajectory], [x0i[TMP_POS_A] for ti,x0i in trajectory], label='max ' + str(round(max_acceleration,1)) + 'g')
+tmp_plot_3, = ax3.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_A] for ti,x0i in trajectory  if ti < 450], label='max ' + str(round(max_acceleration,1)) + 'g')
 tmp_plot_4, = ax4.plot([ti/60. for ti,x0i in trajectory], [(sqrt(x0i[POS_X]**2 + x0i[POS_Y]**2) - Re)/1000. for ti,x0i in trajectory], label='')
+tmp_plot_5, = ax5.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_MASS] for ti,x0i in trajectory if ti < 450], label='dry_mass=18200*, prop_mass=409500')
+tmp_plot_6, = ax6.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_THRUST]/1000. for ti,x0i in trajectory if ti < 450], label='3 Engines at burn 2 and 3')
+tmp_plot_7, = ax7.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_FLOW_RATE] for ti,x0i in trajectory if ti < 450], label='isp_sl=282, isp_vac=311')
+tmp_plot_8, = ax8.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_THRUST_ANGLE] for ti,x0i in trajectory if ti < 450], label='')
 ax1_handles.append(tmp_plot_1)
 ax2_handles.append(tmp_plot_2)
 ax2_handles.append(tmp_plot_2x)
 ax2_handles.append(tmp_plot_2y)
 ax3_handles.append(tmp_plot_3)
 ax4_handles.append(tmp_plot_4)
+ax5_handles.append(tmp_plot_5)
+ax6_handles.append(tmp_plot_6)
+ax7_handles.append(tmp_plot_7)
 
 earth = ax1.add_artist(plt.Circle((0,0),Re/1000.0,color="b",fill=True,label='Earth'))
 ax1.add_artist(plt.Circle((0,0),(Re/1.0e3+25),color="b",alpha=0.1))
@@ -315,9 +349,20 @@ ax3.set_xlabel('Time (min)')
 ax3.set_ylabel('Acceleration (g)')
 ax4.set_xlabel('Time (min)')
 ax4.set_ylabel('Altitude (Km)')
+ax5.set_xlabel('Time (min)')
+ax5.set_ylabel('Mass (Kg)')
+ax6.set_xlabel('Time (min)')
+ax6.set_ylabel('Thrust (KN)')
+ax7.set_xlabel('Time (min)')
+ax7.set_ylabel('Flow Rate (Kg/s)')
+ax8.set_xlabel('Time (min)')
+ax8.set_ylabel('Thrust Angle (Degrees)')
 ax1.legend(handles=ax1_handles, loc='upper right')
 ax2.legend(handles=ax2_handles, loc='lower right')
 ax3.legend(handles=ax3_handles, loc='upper right')
+ax5.legend(handles=ax5_handles, loc='upper right')
+ax6.legend(handles=ax6_handles, loc='upper right')
+ax7.legend(handles=ax7_handles, loc='upper right')
 plt.show()
 
 
