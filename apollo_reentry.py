@@ -16,7 +16,10 @@ ATMOSPHERE_HEIGHT = 90000 # 90 KM - we can ignore air drag beyond this
 G = 6.672e-11   # universal gravitation constant
 Re = 6372e3     # radius of earch (m)
 Me = 5.976e24   # mass of earth (kg)
-fpa = -6.1  # flight path angle
+fpa = -6.3  # flight path angle
+
+omega = 2.0*pi/(23.*3600+56*50+4)  # Earth's angular velocity
+
 
 
 x0,y0,v0 = 0., Re + 121.8e3, 11130.     # initial altitude (m), Initial speed (m/s)
@@ -51,7 +54,14 @@ def get_drag_acceleration(vx, vy, x, y):
     if h > ATMOSPHERE_HEIGHT:
         return [0., 0.]
         
-    v = sqrt(vx**2 + vy**2)
+    r = sqrt(x**2+y**2)
+    v_air = omega*r     # velocity of air
+    vx_air = v_air*(y/r)
+    vy_air = v_air*(-x/r)
+    vx1 = vx - vx_air
+    vy1 = vy - vy_air
+    v = sqrt(vx1**2 + vy1**2)
+
     
     air_density = air_density_sl * exp ( - h / H_FOR_DRAG)
     
@@ -67,7 +77,7 @@ def get_drag_acceleration(vx, vy, x, y):
     global curr_drag_acceleration 
     curr_drag_acceleration = a_drag / g_sl
         
-    return [-a_drag*vx/v, -a_drag*vy/v]
+    return [-a_drag*vx1/v, -a_drag*vy1/v]
    
 def get_gravity_acceleration(x,y):
     
@@ -192,7 +202,7 @@ ENABLE_DRAG = True
 trajectory = get_trajectory(x0, y0, v0, fpa) 
 tmp_plot_1, = ax1.plot([x0i[POS_X]/1000. for ti,x0i in trajectory], [x0i[POS_Y]/1000. for ti,x0i in trajectory], color='r', label='fpa ' + str(fpa))
 tmp_plot_2, = ax2.plot([ti/60. for ti,x0i in trajectory], [sqrt(x0i[POS_VX]**2 + x0i[POS_VY]**2)/1000. for ti,x0i in trajectory], label='fpa ' + str(fpa))
-tmp_plot_3, = ax3.plot([ti/60. for ti,x0i in trajectory], [x0i[TMP_POS_A] for ti,x0i in trajectory], label='max ' + str(round(max_acceleration,1)) + 'g')
+tmp_plot_3, = ax3.plot([ti/60. for ti,x0i in trajectory], [x0i[TMP_POS_A_DRAG] for ti,x0i in trajectory], label='max ' + str(round(max_drag_acceleration,1)) + 'g')
 tmp_plot_4, = ax4.plot([ti/60. for ti,x0i in trajectory], [(sqrt(x0i[POS_X]**2 + x0i[POS_Y]**2) - Re)/1000. for ti,x0i in trajectory], label='fpa ' + str(fpa))
 ax1_handles.append(tmp_plot_1)
 ax2_handles.append(tmp_plot_2)

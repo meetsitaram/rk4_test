@@ -20,30 +20,33 @@ g_sl = 9.81
 
 draf_coefficient = 0.3    # drag coefficient - temporary
 #falcin 8 Full Thrust specs from http://spaceflight101.com/spacerockets/falcon-9-ft/
-inert_mass = 18200.     # had to remove 4 tons weight to achieve orbit
+inert_mass = 22200.     # had to remove 4 tons weight to achieve orbit
 #inert_mass = 22200.
 propellant_mass = 409500.    # kg
 #propellant_mass = 409500.    # kg
 merlin_1D_thrust_sl = 756000. # N
-merlin_1D_thrust_vac = 825000. # N
+merlin_1D_thrust_vac1 = 825000. # N 934KN for vac, 825KN for normal
+merlin_1D_thrust_vac2 = 934000. # N 934KN for vac, 825KN for normal
 thrust_sl = 9.*merlin_1D_thrust_sl # N,
 merlin_1D_specific_impulse_sl = 282.   #sec
-merlin_1D_specific_impulse_vac = 311.   #sec
-burn_time_1 = 100.
-burn_time_2_start =  101.
-burn_time_2_end = 280.
-burn_time_3_start = 390.
-burn_time_3_end = 440.  # until fuel is empty
+merlin_1D_specific_impulse_vac1 = 311.   #sec 311 for normal, 348 for vaccum
+merlin_1D_specific_impulse_vac2 = 348.   #sec 311 for normal, 348 for vaccum
+burn_time_1 = 120.
+burn_time_2_start =  121.
+burn_time_2_end = 270.
+burn_time_3_start = 360.
+burn_time_3_end = 490.  # until fuel is empty
 diameter = 3.66
 ref_area = diameter**2 * pi / 4.   #  reference cross section area - used for drag (m^2)
 flow_rate = 9.*merlin_1D_thrust_sl/(g_sl * merlin_1D_specific_impulse_sl)
 mass = inert_mass + propellant_mass
 throttle = 1.
+omega = 2.0*pi/(23.*3600+56*50+4)  # Earth's angular velocity
 
 second_stage_cut_off = 0.
 
 
-x0,y0,v0 = 0., Re, 0.     # initial altitude (m), Initial speed (m/s)
+x0,y0,v0 = 0., Re, omega*Re     # initial altitude (m), Initial speed (m/s)
 
 POS_X = 0
 POS_Y = 1
@@ -92,15 +95,16 @@ def get_rocket_acceleration(x,y,t, vx, vy):
     if propellant_mass  > h * flow_rate:
         if t >= 0 and t <= burn_time_1:
             engines_on = True
-            flow_rate = 9.*throttle*merlin_1D_thrust_sl/(g_sl * merlin_1D_specific_impulse_sl)
-            thrust_sl = 9.*throttle*merlin_1D_thrust_sl # N,
+            flow_rate = 8.*throttle*merlin_1D_thrust_sl/(g_sl * merlin_1D_specific_impulse_sl)
+            thrust_sl = 8.*throttle*merlin_1D_thrust_sl # N,
             thrust_total = thrust_sl
             thrust_angle = 60.
         elif t >= burn_time_2_start and t <= burn_time_2_end:  
             engines_on = True
             second_stage_cut_off = t
-            flow_rate = 3.*throttle*merlin_1D_thrust_vac/(g_sl * merlin_1D_specific_impulse_vac)
-            thrust_vac = 3.*throttle*merlin_1D_thrust_vac # N,
+            flow_rate = 2.*throttle*merlin_1D_thrust_vac1/(g_sl * merlin_1D_specific_impulse_vac1) + \
+                        1.*throttle*merlin_1D_thrust_vac2/(g_sl * merlin_1D_specific_impulse_vac2)
+            thrust_vac = 2.*throttle*merlin_1D_thrust_vac1 + 1.*throttle*merlin_1D_thrust_vac2 # N,
             thrust_total = thrust_vac
             
             #print 't:', thrust_total/(mass*g_sl)
@@ -114,10 +118,11 @@ def get_rocket_acceleration(x,y,t, vx, vy):
                 
         elif t >= burn_time_3_start and t <= burn_time_3_end:
             engines_on = True
-            flow_rate = 3.*throttle*merlin_1D_thrust_vac/(g_sl * merlin_1D_specific_impulse_sl)
-            thrust_vac = 3.*throttle*merlin_1D_thrust_vac # N,
-            thrust_total = 1.1*thrust_vac 
-            thrust_angle = -4
+            second_stage_cut_off = t
+            flow_rate = 1.*throttle*merlin_1D_thrust_vac2/(g_sl * merlin_1D_specific_impulse_vac2)
+            thrust_vac =  1.*throttle*merlin_1D_thrust_vac2 # N,
+            thrust_total = thrust_vac 
+            thrust_angle = -8
             
     
     global current_thrust, current_thrust_angle, current_flow_rate
@@ -148,7 +153,14 @@ def get_drag_acceleration(vx, vy, x, y):
     if h > ATMOSPHERE_HEIGHT:
         return [0., 0.]
         
-    v = sqrt(vx**2 + vy**2)
+    v_air = omega*r     # velocity of air
+    vx_air = v_air*(y/r)
+    vy_air = v_air*(-x/r)
+    vx1 = vx - vx_air
+    vy1 = vy - vy_air
+    v = sqrt(vx1**2 + vy1**2)
+        
+    #v = sqrt(vx**2 + vy**2)
     
     if v == 0:
         return [0., 0.]
@@ -167,7 +179,7 @@ def get_drag_acceleration(vx, vy, x, y):
     global curr_drag_acceleration 
     curr_drag_acceleration = a_drag / g_sl
         
-    return [-a_drag*vx/v, -a_drag*vy/v]
+    return [-a_drag*vx1/v, -a_drag*vy1/v]
    
 def get_gravity_acceleration(x,y):
     
@@ -320,9 +332,9 @@ tmp_plot_2y, = ax2.plot([ti/60. for ti,x0i in trajectory], [abs(x0i[POS_VY])/100
 tmp_plot_2, = ax2.plot([ti/60. for ti,x0i in trajectory], [sqrt(x0i[POS_VX]**2 + x0i[POS_VY]**2)/1000. for ti,x0i in trajectory], label='V')
 tmp_plot_3, = ax3.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_A] for ti,x0i in trajectory  if ti < 450], label='max ' + str(round(max_acceleration,1)) + 'g')
 tmp_plot_4, = ax4.plot([ti/60. for ti,x0i in trajectory], [(sqrt(x0i[POS_X]**2 + x0i[POS_Y]**2) - Re)/1000. for ti,x0i in trajectory], label='')
-tmp_plot_5, = ax5.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_MASS] for ti,x0i in trajectory if ti < 450], label='dry_mass=18200*, prop_mass=409500')
-tmp_plot_6, = ax6.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_THRUST]/1000. for ti,x0i in trajectory if ti < 450], label='3 Engines at burn 2 and 3')
-tmp_plot_7, = ax7.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_FLOW_RATE] for ti,x0i in trajectory if ti < 450], label='isp_sl=282, isp_vac=311')
+tmp_plot_5, = ax5.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_MASS] for ti,x0i in trajectory if ti < 450], label='dry_mass='+ str(int(inert_mass)) +', prop_mass=409500')
+tmp_plot_6, = ax6.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_THRUST]/1000. for ti,x0i in trajectory if ti < 450], label='8 Eng. at burn1, 3(1 Vac) at b2, b3')
+tmp_plot_7, = ax7.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_FLOW_RATE] for ti,x0i in trajectory if ti < 450], label='isp_sl=282, isp_vac=311/348')
 tmp_plot_8, = ax8.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_THRUST_ANGLE] for ti,x0i in trajectory if ti < 450], label='')
 ax1_handles.append(tmp_plot_1)
 ax2_handles.append(tmp_plot_2)
