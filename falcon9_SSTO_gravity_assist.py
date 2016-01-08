@@ -40,6 +40,8 @@ ref_area = diameter**2 * pi / 4.   #  reference cross section area - used for dr
 m1D_flow_rate = merlin_1D_thrust_sl/merlin_1D_specific_impulse_sl
 
 flow_rate = 0.
+isp = 0.
+thrust_total = 0.
 
 mass = inert_mass + propellant_mass
 omega = 2.0*pi/(23.*3600+56*50+4)  # Earth's angular velocity
@@ -60,6 +62,8 @@ TMP_POS_MASS = 6
 TMP_POS_THRUST = 7
 TMP_POS_FLOW_RATE = 8
 TMP_POS_THRUST_ANGLE = 9
+TMP_POS_ISP = 10
+TMP_POS_TWR = 11
 
 ENABLE_DRAG = True
 
@@ -101,7 +105,7 @@ def compute_orbit(x, y, vx, vy):
 def get_rocket_acceleration(x,y,t, vx, vy):
     a_rocket = [0., 0.]
 
-    global flow_rate
+    global flow_rate, thrust_total
     flow_rate = 0.
     thrust_total = 0.
         
@@ -122,6 +126,7 @@ def get_rocket_acceleration(x,y,t, vx, vy):
     
     r = sqrt(x**2 + y**2)
     altitude = r - Re
+    global isp
     isp = (merlin_1D_specific_impulse_sl - merlin_1D_specific_impulse_vac1)*exp(-altitude/H_FOR_PRESSURE) + merlin_1D_specific_impulse_vac1
     
 
@@ -131,7 +136,7 @@ def get_rocket_acceleration(x,y,t, vx, vy):
             thrust_angle = 90.
             
         elif t<= 12:
-            thrust_angle = 80.5
+            thrust_angle = 80.3
             
         else:
             if altitude < ATMOSPHERE_HEIGHT:
@@ -297,7 +302,7 @@ def get_trajectory(x0, y0, v0):
     global curr_drag_acceleration
     global curr_acceleration
     
-    while sqrt(args0[POS_X]**2 + args0[POS_Y]**2) >= Re and t < 9000: 
+    while sqrt(args0[POS_X]**2 + args0[POS_Y]**2) >= Re and t < 450: 
         tmp_args = list(args0)
         tmp_args.append(curr_drag_acceleration)            
         tmp_args.append(curr_acceleration)
@@ -305,6 +310,8 @@ def get_trajectory(x0, y0, v0):
         tmp_args.append(current_thrust)
         tmp_args.append(current_flow_rate)
         tmp_args.append(current_thrust_angle)
+        tmp_args.append(isp)
+        tmp_args.append(thrust_total/(mass*g_sl))
         trajectory.append( (t, tmp_args) )        
         
         
@@ -333,7 +340,7 @@ def get_trajectory(x0, y0, v0):
             mass = inert_mass + propellant_mass
         
         global periapsis_radius, apoapsis_radius, semimajor_axis,eccentricity
-        if semimajor_axis == 0 and t > burn_time_3_end:
+        if semimajor_axis == 0 and t > burn_time_2_end:
             print 'altitude:', altitude
             periapsis_radius, apoapsis_radius, semimajor_axis,eccentricity = compute_orbit(args0[POS_X], args0[POS_Y], args0[POS_VX], args0[POS_VY])
             print 'periapsis_radius:', periapsis_radius - Re, 'apoapsis_radius:', apoapsis_radius - Re, 'semimajor_axis', semimajor_axis, 'eccentricity:', eccentricity
@@ -367,16 +374,16 @@ current_thrust_angle = 0.
 
 ENABLE_DRAG = True
 trajectory = get_trajectory(x0, y0, v0) 
-tmp_plot_1, = ax1.plot([x0i[POS_X]/1000. for ti,x0i in trajectory], [x0i[POS_Y]/1000. for ti,x0i in trajectory], color='r', label='Trajectory')
+tmp_plot_1, = ax1.plot([x0i[POS_X]/1000. for ti,x0i in trajectory if ti < 450], [x0i[POS_Y]/1000. for ti,x0i in trajectory if ti < 450], color='r', label='Trajectory')
 tmp_plot_2x, = ax2.plot([ti/60. for ti,x0i in trajectory], [abs(x0i[POS_VX])/1000. for ti,x0i in trajectory], label='Vx')
 tmp_plot_2y, = ax2.plot([ti/60. for ti,x0i in trajectory], [abs(x0i[POS_VY])/1000. for ti,x0i in trajectory], label='Vy')
 tmp_plot_2, = ax2.plot([ti/60. for ti,x0i in trajectory], [sqrt(x0i[POS_VX]**2 + x0i[POS_VY]**2)/1000. for ti,x0i in trajectory], label='V')
 tmp_plot_3, = ax3.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_A] for ti,x0i in trajectory  if ti < 450], label='max ' + str(round(max_acceleration,1)) + 'g')
 tmp_plot_4, = ax4.plot([ti/60. for ti,x0i in trajectory], [(sqrt(x0i[POS_X]**2 + x0i[POS_Y]**2) - Re)/1000. for ti,x0i in trajectory], label='')
-tmp_plot_5, = ax5.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_MASS] for ti,x0i in trajectory if ti < 450], label='dry_mass='+ str(int(inert_mass)) +', prop_mass=409500')
-tmp_plot_6, = ax6.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_THRUST]/1000. for ti,x0i in trajectory if ti < 450], label='8 Eng. at burn1, 3 at b2, 1 at b3')
-tmp_plot_7, = ax7.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_FLOW_RATE] for ti,x0i in trajectory if ti < 450], label='isp_sl=282, isp_vac=311')
-tmp_plot_8, = ax8.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_THRUST_ANGLE] for ti,x0i in trajectory if ti < 450], label='')
+tmp_plot_5, = ax5.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_TWR] for ti,x0i in trajectory if ti < 450], label='dry_mass='+ str(int(inert_mass)) +', prop_mass=409500')
+tmp_plot_6, = ax6.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_THRUST_ANGLE]/1000. for ti,x0i in trajectory if ti < 450], label='')
+tmp_plot_7, = ax7.plot([ti/60. for ti,x0i in trajectory if ti < 450], [int(round(x0i[TMP_POS_ISP]/g_sl)) for ti,x0i in trajectory if ti < 450], label='isp_sl=282, isp_vac=311')
+tmp_plot_8, = ax8.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_A_DRAG] for ti,x0i in trajectory if ti < 450], label='')
 ax1_handles.append(tmp_plot_1)
 ax2_handles.append(tmp_plot_2)
 ax2_handles.append(tmp_plot_2x)
@@ -387,10 +394,11 @@ ax5_handles.append(tmp_plot_5)
 ax6_handles.append(tmp_plot_6)
 ax7_handles.append(tmp_plot_7)
 
-earth = ax1.add_artist(plt.Circle((0,0),Re/1000.0,color="b",fill=True,label='Earth'))
-ax1.add_artist(plt.Circle((0,0),(Re/1.0e3+25),color="b",alpha=0.1))
-ax1.add_artist(plt.Circle((0,0),(Re/1.0e3+50),color="b",alpha=0.05))
-ax1.add_artist(plt.Circle((0,0),(Re/1.0e3+90),color="b",alpha=0.04))
+earth = ax1.add_artist(plt.Circle((0,0),Re/1000.0,color="b",fill=False,label='Earth'))
+ax1.add_artist(plt.Circle((0,0),(Re+ATMOSPHERE_HEIGHT)/1000.0,color="r", ls='dashed', fill=False, alpha=0.4))
+#ax1.add_artist(plt.Circle((0,0),(Re/1.0e3+25),color="b",alpha=0.1))
+#ax1.add_artist(plt.Circle((0,0),(Re/1.0e3+50),color="b",alpha=0.05))
+#ax1.add_artist(plt.Circle((0,0),(Re/1.0e3+90),color="b",alpha=0.04))
 
   
 ax1_handles.append(earth)
@@ -403,13 +411,13 @@ ax3.set_ylabel('Acceleration (g)')
 ax4.set_xlabel('Time (min)')
 ax4.set_ylabel('Altitude (Km)')
 ax5.set_xlabel('Time (min)')
-ax5.set_ylabel('Prop. Mass (Kg)')
+ax5.set_ylabel('Thrust-to-weight ratio')
 ax6.set_xlabel('Time (min)')
-ax6.set_ylabel('Thrust (KN)')
+ax6.set_ylabel('Thrust Angle')
 ax7.set_xlabel('Time (min)')
-ax7.set_ylabel('Flow Rate (Kg/s)')
+ax7.set_ylabel('ISP (sec)')
 ax8.set_xlabel('Time (min)')
-ax8.set_ylabel('Thrust Angle (Degrees)')
+ax8.set_ylabel('Drag A')
 ax1.legend(handles=ax1_handles, loc='center')
 ax2.legend(handles=ax2_handles, loc='lower right')
 ax3.legend(handles=ax3_handles, loc='upper right')
