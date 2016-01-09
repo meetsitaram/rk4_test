@@ -23,7 +23,6 @@ draf_coefficient = 0.3    # drag coefficient - temporary
 #falcin 8 Full Thrust specs from http://spaceflight101.com/spacerockets/falcon-9-ft/
 inert_mass = 22200.    # Kg
 propellant_mass = 409500.    # kg
-#propellant_mass = 409500.    # kg
 merlin_1D_thrust_sl = 756000. # N
 merlin_1D_thrust_vac1 = 825000. # N 
 thrust_sl = 9.*merlin_1D_thrust_sl # N,
@@ -33,6 +32,7 @@ merlin_1D_specific_impulse_vac1 = 311.*g_sl   # m/s
 burn_time_1 = 100.
 burn_time_2_start =  100.
 burn_time_2_end = 400.
+PITCH_KICK_ANGLE = 9.9 #degrees from vertical
 
 
 diameter = 3.66
@@ -130,24 +130,25 @@ def get_rocket_acceleration(x,y,t, vx, vy):
     isp = (merlin_1D_specific_impulse_sl - merlin_1D_specific_impulse_vac1)*exp(-altitude/H_FOR_PRESSURE) + merlin_1D_specific_impulse_vac1
     
 
+    vy_surf = vy - omega*(-x)
+    vx_surf = vx - omega*y
             
     if t >= 0 and t < burn_time_1 and propellant_mass > h*9*m1D_flow_rate:
         if t <= 10:
             thrust_angle = 90.
             
         elif t<= 12:
-            thrust_angle = 80.3
+            thrust_angle = 90 - PITCH_KICK_ANGLE
             
         else:
             if altitude < ATMOSPHERE_HEIGHT:
-                thrust_angle = (180./pi)*arctan( (vy ) / (vx-omega*y))
+                thrust_angle = (180./pi)*arctan(vy_surf/vx_surf)
             else:
                 thrust_angle =  (180./pi)*arctan(vy/vx)
         
         engines_on = True
         flow_rate = 9.*m1D_flow_rate
         thrust_total = flow_rate*isp
-
 
             
     elif t >= burn_time_2_start and t < burn_time_2_end and propellant_mass > h*2*m1D_flow_rate:  
@@ -156,7 +157,7 @@ def get_rocket_acceleration(x,y,t, vx, vy):
         flow_rate = 2.*m1D_flow_rate
         thrust_total = flow_rate*isp
         if altitude < ATMOSPHERE_HEIGHT:
-            thrust_angle = (180./pi)*arctan( (vy) / (vx-omega*y))
+            thrust_angle = (180./pi)*arctan(vy_surf/vx_surf)
         else:
             thrust_angle =  (180./pi)*arctan(vy/vx)
         print thrust_angle
@@ -302,7 +303,7 @@ def get_trajectory(x0, y0, v0):
     global curr_drag_acceleration
     global curr_acceleration
     
-    while sqrt(args0[POS_X]**2 + args0[POS_Y]**2) >= Re and t < 450: 
+    while sqrt(args0[POS_X]**2 + args0[POS_Y]**2) >= Re and t < 1800: 
         tmp_args = list(args0)
         tmp_args.append(curr_drag_acceleration)            
         tmp_args.append(curr_acceleration)
@@ -375,13 +376,13 @@ current_thrust_angle = 0.
 ENABLE_DRAG = True
 trajectory = get_trajectory(x0, y0, v0) 
 tmp_plot_1, = ax1.plot([x0i[POS_X]/1000. for ti,x0i in trajectory if ti < 450], [x0i[POS_Y]/1000. for ti,x0i in trajectory if ti < 450], color='r', label='Trajectory')
-tmp_plot_2x, = ax2.plot([ti/60. for ti,x0i in trajectory], [abs(x0i[POS_VX])/1000. for ti,x0i in trajectory], label='Vx')
-tmp_plot_2y, = ax2.plot([ti/60. for ti,x0i in trajectory], [abs(x0i[POS_VY])/1000. for ti,x0i in trajectory], label='Vy')
+tmp_plot_2x, = ax2.plot([ti/60. for ti,x0i in trajectory], [abs(x0i[POS_VX])/1000. for ti,x0i in trajectory], ls='dashed', alpha=0.4, label='Vx')
+tmp_plot_2y, = ax2.plot([ti/60. for ti,x0i in trajectory], [abs(x0i[POS_VY])/1000. for ti,x0i in trajectory],  ls='dashed', alpha=0.4,label='Vy')
 tmp_plot_2, = ax2.plot([ti/60. for ti,x0i in trajectory], [sqrt(x0i[POS_VX]**2 + x0i[POS_VY]**2)/1000. for ti,x0i in trajectory], label='V')
 tmp_plot_3, = ax3.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_A] for ti,x0i in trajectory  if ti < 450], label='max ' + str(round(max_acceleration,1)) + 'g')
 tmp_plot_4, = ax4.plot([ti/60. for ti,x0i in trajectory], [(sqrt(x0i[POS_X]**2 + x0i[POS_Y]**2) - Re)/1000. for ti,x0i in trajectory], label='')
 tmp_plot_5, = ax5.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_TWR] for ti,x0i in trajectory if ti < 450], label='dry_mass='+ str(int(inert_mass)) +', prop_mass=409500')
-tmp_plot_6, = ax6.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_THRUST_ANGLE]/1000. for ti,x0i in trajectory if ti < 450], label='')
+tmp_plot_6, = ax6.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_THRUST_ANGLE] for ti,x0i in trajectory if ti < 450], label='Pitch Kick 9.9 deg for 2s')
 tmp_plot_7, = ax7.plot([ti/60. for ti,x0i in trajectory if ti < 450], [int(round(x0i[TMP_POS_ISP]/g_sl)) for ti,x0i in trajectory if ti < 450], label='isp_sl=282, isp_vac=311')
 tmp_plot_8, = ax8.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_A_DRAG] for ti,x0i in trajectory if ti < 450], label='')
 ax1_handles.append(tmp_plot_1)
