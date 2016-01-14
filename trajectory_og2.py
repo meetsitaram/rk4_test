@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from numpy import arcsin
 from math import pi, cos, sin
 
-
+g_sl = 9.81
 
 #time,speed, altitude, range
 actual_stage1_trajectory = [
@@ -65,7 +65,20 @@ actual_stage2_trajectory = [
     [520,20281,593,0],
     [540,23164,609,0],
     [560,25376,618,0],
+    [561,25505,618,0],
+    [562,25596,618,0],
+    [563,25701,619,0],
+    [564,25848,619,0],
+    [565,25945,619,0],
+    [566,25974,619,0],
+    [567,25988,619,0],
+    [570,25991,619,0],
+    [571,25992,619,0], 
+    [572,25992,619,0],
+    [573,25992,619,0],
+    [574,25991,619,0],
     [580,25991,619,0],
+    [590,25990,619,0],  # SECO
 ]
 
 range_values = [
@@ -74,6 +87,26 @@ range_values = [
     [120,3949,42.5,11],
     [360,8187,379,157],
 ]
+
+
+#press kit - http://www.spacex.com/sites/spacex/files/spacex_orbcomm_press_kit_final2.pdf
+
+# LAUNCH AND FIRST-STAGE LANDING
+# Hour/Min Events
+# 00:01 Max Q (moment of peak mechanical stress on the rocket)
+# 00:02:20 1st stage engine shutdown/main engine cutoff (MECO)
+# 00:02:24 1st and 2nd stages separate
+# 00:02:35 2nd stage engine starts
+# 00:03 Fairing deployment
+# 00:04 1st stage boostback burn
+# 00:08 1st stage re-entry burn
+# 00:10 2nd stage engine cutoff (SECO)
+# 00:10 1st stage landing
+# 00:15 ORBCOMM satellites begin deployment
+# 00:20 ORBCOMM satellites end deployment
+# 00:26 1st satellite completes antenna & solar array deployment & starts transmitting
+# 00:31 All satellites complete antenna & solar array deployment & start transmitting
+#
 
 fig = plt.figure()
 ax1 = fig.add_subplot(111)
@@ -112,5 +145,25 @@ ax1 = fig.add_subplot(111)
 theta_plot, = ax1.plot([i[0] for i in actual_stage2_trajectory], [ (180/pi)*arcsin(i[2]*1000/(i[1]*(5./18)*(i[0]+0.0001))) for i in actual_stage2_trajectory], label='OG2 S2 Theta')
 ax1.set_xlabel('Time (s)')
 ax1.set_ylabel('Theta (degrees)')
+plt.legend(handles=[theta_plot], loc='bottom right')
+plt.show()
+
+fig = plt.figure()
+ax1 = fig.add_subplot(111)
+acc_pts = []
+        
+theta_plot, = ax1.plot([i[0] for i in actual_stage1_trajectory if i[0]>0], [ (5./18.)*(pt[1] - actual_stage1_trajectory[idx-1][1])/(pt[0]-actual_stage1_trajectory[idx-1][0])/g_sl  for idx, pt in enumerate(actual_stage1_trajectory) if pt[0] > 0], label='OG2 S1 Acc')
+ax1.set_xlabel('Time (s)')
+ax1.set_ylabel('Acceleration (g)')
+plt.legend(handles=[theta_plot], loc='bottom right')
+plt.show()
+
+fig = plt.figure()
+ax1 = fig.add_subplot(111)
+acc_pts = []
+        
+theta_plot, = ax1.plot([pt[0] for idx,pt in enumerate(actual_stage2_trajectory) if idx>0], [ (5./18.)*(pt[1] - actual_stage2_trajectory[idx-1][1])/(pt[0]-actual_stage2_trajectory[idx-1][0])/g_sl  for idx, pt in enumerate(actual_stage2_trajectory) if idx > 0], label='OG2 S2 Acc')
+ax1.set_xlabel('Time (s)')
+ax1.set_ylabel('Acceleration (g)')
 plt.legend(handles=[theta_plot], loc='bottom right')
 plt.show()
