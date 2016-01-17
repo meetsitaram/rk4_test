@@ -52,7 +52,7 @@ stage_separation = False
 fairing_separation = False
 lift_off = False
 
-diameter = 3.7
+diameter = 3.66
 ref_area = diameter**2 * pi / 4.   #  reference cross section area - used for drag (m^2)
 s1_m1D_flow_rate = s1_merlin_1D_thrust_sl/s1_merlin_1D_specific_impulse_sl
 s2_m1D_flow_rate = s2_merlin_1D_thrust_vac1/s2_merlin_1D_specific_impulse_vac1
@@ -81,7 +81,8 @@ TMP_POS_FLOW_RATE = 8
 TMP_POS_THRUST_ANGLE = 9
 TMP_POS_ISP = 10
 TMP_POS_TWR = 11
-TMP_POS_Q = 11
+TMP_POS_Q = 12
+TMP_POS_ANGLE_OF_ATTACK = 13
 
 ENABLE_DRAG = True
 
@@ -96,6 +97,7 @@ current_thrust = 0.
 current_thrust_angle = 0.
 current_flow_rate = 0.
 current_dynamic_pressure = 0.
+current_angle_of_attack = 0.
 
 engines_on = True
 
@@ -224,6 +226,7 @@ def get_rocket_acceleration(x,y,t, vx, vy):
 
     global h, mass
     
+    
             
     global s2_burn_time_start, s2_burn_time_end, s1_burn_time_end, second_stage_cut_off
     global engines_on
@@ -233,7 +236,9 @@ def get_rocket_acceleration(x,y,t, vx, vy):
     flow_rate = 0. 
     engines_on = False
     
+    
     r = sqrt(x**2 + y**2)
+    g = G*Me/r**2
     altitude = r - Re
     global isp, stage_separation
     if stage_separation == True:
@@ -244,22 +249,24 @@ def get_rocket_acceleration(x,y,t, vx, vy):
 
     vy_surf = vy - omega*(-x)
     vx_surf = vx - omega*y
+    velocity_vector_angle = (180./pi)*arctan(vy_surf/ (vx_surf+0.00001))
+    
             
     if t >= 0 and t < s1_burn_time_end and propellant_mass > h*9.*s1_m1D_flow_rate:
+        
+        
+        
         if t <= 7.5:
             thrust_angle = 90.
             
         elif t<= 55:
             global PITCH_KICK_ANGLE
-            PITCH_KICK_ANGLE = 3.
+            PITCH_KICK_ANGLE = 2.41
             #thrust_angle = (180./pi)*arctan(vy_surf/vx_surf) - PITCH_KICK_ANGLE*exp((t-7.5)/110.)
             thrust_angle = 90 - PITCH_KICK_ANGLE*exp((t-7.5)/110.)
             
-        else:
-            if altitude < ATMOSPHERE_HEIGHT:
-                thrust_angle = (180./pi)*arctan(vy_surf/vx_surf)
-            else:
-                thrust_angle =  (180./pi)*arctan(vy/vx)
+        elif t > 55:
+            thrust_angle = (180./pi)*arctan(vy_surf/vx_surf)
         
         engines_on = True
         
@@ -270,50 +277,49 @@ def get_rocket_acceleration(x,y,t, vx, vy):
         throttle = 1 - .26*exp((t-145)/300)
         flow_rate = flow_rate*throttle
         thrust_total = flow_rate*isp
-        #print 'PITCH_KICK_ANGLE diff', (180./pi)*arctan(vy_surf/ (vx_surf+0.00001)) - thrust_angle
-        
-
-
+        #print 'PITCH_KICK_ANGLE diff', (180./pi)*arctan(vy_surf/ (vx_surf+0.00001)) - thrust_angle        
             
     elif t >= s2_burn_time_start and t < s2_burn_time_end and propellant_mass > h*1.*s2_m1D_flow_rate:
         engines_on = True
   
         second_stage_cut_off = t
 
-        
-        flow_rate = 1.*s2_m1D_flow_rate
-        thrust_total = flow_rate*isp
-
-        if t < 400:
-            thrust_angle = (180./pi)*arctan(vy/vx) + 25.3
-        else:
-            thrust_angle = (180./pi)*arctan(vy/vx) - 21.
-        
-        #thrust_angle = (180./pi)*arctan(vy/vx) + 15 #.*exp((t-155)/390.)
-        #print (180./pi)*arctan(vy/vx)  - thrust_angle, (180./pi)*arctan(vy/vx)
-        
+        steer_angle = 0.
+        if t > 500:
+            steer_angle = 45.
             
-        throttle = 1.
-        if t > 200:
-            throttle = 1. - .181*exp((t-590)/800.)
-        flow_rate = flow_rate*throttle
-        #print throttle
+        thrust_angle = velocity_vector_angle - steer_angle*((t-250)/(550 - 250))**5
+        if t > 550:
+            throttle = 0.68
+        elif t> 200:
+            throttle = 1. - .253* ((t-200)/(550 - 200))**6  - 0.1375*exp( (t-550)/425. )  
+
+
+        flow_rate = throttle*1.*s2_m1D_flow_rate
         thrust_total = flow_rate*isp        
         
     
-    global current_thrust, current_thrust_angle, current_flow_rate
+    global current_thrust, current_thrust_angle, current_flow_rate, current_angle_of_attack
     current_thrust = thrust_total
     current_flow_rate = flow_rate
     current_thrust_angle = thrust_angle
+    current_angle_of_attack = thrust_angle -  velocity_vector_angle
+    if current_angle_of_attack > 90. or current_angle_of_attack < -90:
+        current_angle_of_attack = 0.
+    
     if engines_on == False:
         current_flow_rate = 0.
         current_thrust = 0.
-        current_thrust_angle = 0.    
+        current_thrust_angle = 0.   
+        current_angle_of_attack = 0.
     
+    #print 't, thrust_angle', t, thrust_angle
+
     a_rocket_total = thrust_total/mass
         
 
-    a_rocket = [a_rocket_total*cos(pi*thrust_angle/180.), a_rocket_total*sin(pi*thrust_angle/180.)]            
+    a_rocket = [a_rocket_total*cos(pi*thrust_angle/180.), a_rocket_total*sin(pi*thrust_angle/180.)]  
+   
         
     return a_rocket
         
@@ -378,6 +384,9 @@ def get_acceleration(x, y, vx, vy, t):
     
     g_sl = G*Me/Re**2
     
+    r = sqrt(x**2 + y**2)
+    g = G*Me/r**2
+    
     a_drag = get_drag_acceleration(vx, vy, x, y)
     a_gravity = get_gravity_acceleration(x,y)
     a_rocket = get_rocket_acceleration(x,y,t,vx, vy)
@@ -386,11 +395,11 @@ def get_acceleration(x, y, vx, vy, t):
     
     a_magnitude = sqrt(a[0]**2 + a[1]**2)
     global max_acceleration
-    if a_magnitude > max_acceleration*g_sl:
-        max_acceleration = a_magnitude  / g_sl
+    if a_magnitude > max_acceleration*g:
+        max_acceleration = a_magnitude  / g
         
     global curr_acceleration 
-    curr_acceleration = a_magnitude / g_sl    
+    curr_acceleration = a_magnitude / g 
 
     return a
 
@@ -474,7 +483,8 @@ def get_trajectory(x0, y0, v0):
         tmp_args.append(isp)
         tmp_args.append(thrust_total/(mass*g_sl))
         tmp_args.append(current_dynamic_pressure)
-        trajectory.append( (t, tmp_args) )        
+        tmp_args.append(current_angle_of_attack)
+        trajectory.append( (t, tmp_args) )     
         
         
         global max_altitude
@@ -516,7 +526,6 @@ def get_trajectory(x0, y0, v0):
         
     return trajectory
 
-fig1 = plt.figure()
 fig1, ((ax1,ax5),(ax4, ax7), (ax2, ax6), (ax3, ax8)) = plt.subplots(4, 2)
 ax1_handles = []
 ax2_handles = []
@@ -543,13 +552,13 @@ tmp_plot_1, = ax1.plot([x0i[POS_X]/1000. for ti,x0i in trajectory], [x0i[POS_Y]/
 tmp_plot_2x, = ax2.plot([ti/60. for ti,x0i in trajectory], [abs(x0i[POS_VX])/1000. for ti,x0i in trajectory], ls='dashed', alpha=0.4, label='Vx')
 tmp_plot_2y, = ax2.plot([ti/60. for ti,x0i in trajectory], [abs(x0i[POS_VY])/1000. for ti,x0i in trajectory],  ls='dashed', alpha=0.4,label='Vy')
 tmp_plot_2, = ax2.plot([ti/60. for ti,x0i in trajectory], [sqrt(x0i[POS_VX]**2 + x0i[POS_VY]**2)/1000. for ti,x0i in trajectory], label='V')
-tmp_plot_3, = ax3.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_A] for ti,x0i in trajectory  if ti < 450], label='max ' + str(round(max_acceleration,1)) + 'g')
-tmp_plot_4, = ax4.plot([ti/60. for ti,x0i in trajectory], [(sqrt(x0i[POS_X]**2 + x0i[POS_Y]**2) - Re)/1000. for ti,x0i in trajectory], label='')
-tmp_plot_5, = ax5.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_TWR] for ti,x0i in trajectory if ti < 450], label='')
-tmp_plot_6, = ax6.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_THRUST_ANGLE] for ti,x0i in trajectory if ti < 450], label='')
+tmp_plot_3, = ax3.plot([ti/60. for ti,x0i in trajectory if ti], [x0i[TMP_POS_A] for ti,x0i in trajectory  if ti ], label='max ' + str(round(max_acceleration,1)) + 'g')
+tmp_plot_4, = ax4.plot([ti/60. for ti,x0i in trajectory], [(sqrt(x0i[POS_X]**2 + x0i[POS_Y]**2) - Re)/1000. for ti,x0i in trajectory])
+tmp_plot_5, = ax5.plot([ti/60. for ti,x0i in trajectory if ti < 600], [x0i[TMP_POS_TWR] for ti,x0i in trajectory if ti < 600])
+tmp_plot_6, = ax6.plot([ti/60. for ti,x0i in trajectory if ti < 600], [x0i[TMP_POS_THRUST_ANGLE] for ti,x0i in trajectory if ti < 600])
 #tmp_plot_7, = ax7.plot([ti/60. for ti,x0i in trajectory if ti < 450], [int(round(x0i[TMP_POS_ISP]/g_sl)) for ti,x0i in trajectory if ti < 450], label='isp_sl=282, isp_vac=311')
-tmp_plot_7, = ax7.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_Q] for ti,x0i in trajectory if ti < 450], label='')
-tmp_plot_8, = ax8.plot([ti/60. for ti,x0i in trajectory if ti < 450], [x0i[TMP_POS_A_DRAG] for ti,x0i in trajectory if ti < 450], label='')
+tmp_plot_7, = ax7.plot([ti/60. for ti,x0i in trajectory if ti < 600], [x0i[TMP_POS_Q] for ti,x0i in trajectory if ti < 600])
+tmp_plot_8, = ax8.plot([ti/60. for ti,x0i in trajectory if ti < 600], [x0i[TMP_POS_A_DRAG] for ti,x0i in trajectory if ti < 600])
 ax1_handles.append(tmp_plot_1)
 ax2_handles.append(tmp_plot_2)
 ax2_handles.append(tmp_plot_2x)
@@ -597,12 +606,11 @@ plt.show()
 print 'max_drag_acceleration:', round(max_drag_acceleration,1), 'g, max_acceleration:', round(max_acceleration,1), 'g, max_altitude:', round(max_altitude/1000.), 'km, down_range:', round(down_range/1000.), 'km'
 print 'second_stage_cut_off:', second_stage_cut_off, 'propellant_left s1/s2:', s1_propellant_mass, s2_propellant_mass
 
-fig1 = plt.figure()
-fig1, ((ax1,ax2)) = plt.subplots(1, 2)
+fig1, ((ax1,ax2), (ax3,ax4)) = plt.subplots(2, 2)
 
-trajectory_s1, = ax1.plot([i[0] for i in actual_stage1_trajectory], [i[2] for i in actual_stage1_trajectory], label='OG2 S1 Altitude')
-trajectory_s2, = ax1.plot([i[0] for i in actual_stage2_trajectory], [i[2] for i in actual_stage2_trajectory], label='OG2 S2 Altitude')
-trajectory_d, = ax1.plot([ ti for ti,x0i in trajectory], [ (sqrt(x0i[POS_X]**2 + x0i[POS_Y]**2) - Re)/1000. for ti,x0i in trajectory], color='r', label='Sim Trajectory')
+trajectory_s1, = ax1.plot([i[0] for i in actual_stage1_trajectory], [i[2] for i in actual_stage1_trajectory], label='OG2 S1')
+trajectory_s2, = ax1.plot([i[0] for i in actual_stage2_trajectory], [i[2] for i in actual_stage2_trajectory], label='OG2 S2')
+trajectory_d, = ax1.plot([ ti for ti,x0i in trajectory], [ (sqrt(x0i[POS_X]**2 + x0i[POS_Y]**2) - Re)/1000. for ti,x0i in trajectory], color='r', label='Sim')
 tmp_plot_oa, = ax1.plot([ti for ti,x0i in trajectory], [orbit_altitude/1000. for ti,x0i in trajectory], ls='dashed', alpha=0.4, label='')
 #trajectory_s2, = ax1.plot([ ti for ti,x0i in trajectory if ti < 450], [ (x0i[POS_Y]-Re)/1000. for ti,x0i in trajectory if ti < 450], color='r', label='Trajectory')
 ax1.set_xlabel('Time (s)')
@@ -610,12 +618,18 @@ ax1.set_ylabel('Altitude (km)')
 ax1.legend(handles=[trajectory_s1, trajectory_s2, trajectory_d, tmp_plot_oa], loc='upper left')
 
 
-trajectory_v1, = ax2.plot([i[0] for i in actual_stage1_trajectory], [i[1]*5./18 for i in actual_stage1_trajectory], label='OG2 S1 Speed')
-trajectory_v2, = ax2.plot([i[0] for i in actual_stage2_trajectory], [i[1]*5./18 for i in actual_stage2_trajectory], label='OG2 S2 Speed')
-tmp_plot_2, = ax2.plot([ti for ti,x0i in trajectory], [sqrt( (x0i[POS_VX] - omega*x0i[POS_Y])**2 + (x0i[POS_VY] + omega*x0i[POS_X])**2) for ti,x0i in trajectory], label='Sim Speed')
-tmp_plot_vt, = ax2.plot([ti for ti,x0i in trajectory], [v_terminal for ti,x0i in trajectory], ls='dashed', alpha=0.4, label='')
-tmp_plot_vt_s, = ax2.plot([ti for ti,x0i in trajectory], [v_terminal - omega*Re for ti,x0i in trajectory], ls='dashed', alpha=0.4, label='')
+trajectory_v1, = ax2.plot([i[0] for i in actual_stage1_trajectory], [i[1]*5./18 for i in actual_stage1_trajectory], label='OG2 S1')
+trajectory_v2, = ax2.plot([i[0] for i in actual_stage2_trajectory], [i[1]*5./18 for i in actual_stage2_trajectory], label='OG2 S2')
+tmp_plot_2, = ax2.plot([ti for ti,x0i in trajectory], [sqrt( (x0i[POS_VX] - omega*x0i[POS_Y])**2 + (x0i[POS_VY] + omega*x0i[POS_X])**2) for ti,x0i in trajectory], label='Sim')
+tmp_plot_vt, = ax2.plot([ti for ti,x0i in trajectory], [v_terminal for ti,x0i in trajectory], ls='dashed', alpha=0.4)
+tmp_plot_vt_s, = ax2.plot([ti for ti,x0i in trajectory], [v_terminal - omega*Re for ti,x0i in trajectory], ls='dashed', alpha=0.4)
 ax2.set_xlabel('Time (s)')
 ax2.set_ylabel('Speed (m/s)')
 ax2.legend(handles=[trajectory_v1, trajectory_v2, tmp_plot_2, tmp_plot_vt, tmp_plot_vt_s ], loc='upper left')
+
+
+aoa, = ax3.plot([ti for ti,x0i in trajectory], [x0i[TMP_POS_ANGLE_OF_ATTACK] for ti,x0i in trajectory], label='')
+ax3.set_xlabel('Time (s)')
+ax3.set_ylabel('Angle of Attack')
+ax3.legend(handles=[aoa ], loc='upper left')
 plt.show()
