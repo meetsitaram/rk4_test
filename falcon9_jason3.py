@@ -694,7 +694,7 @@ trajectory_d, = ax1.plot([ ti for ti,x0i in trajectory  if ti < 600], [ (sqrt(x0
 #trajectory_s2, = ax1.plot([ ti for ti,x0i in trajectory if ti < 450], [ (x0i[POS_Y]-Re)/1000. for ti,x0i in trajectory if ti < 450], color='r', label='Trajectory')
 ax1.set_xlabel('Time (s)')
 ax1.set_ylabel('Altitude (km)')
-ax1.legend(handles=[trajectory_s1, trajectory_d], loc='upper left')
+ax1.legend(handles=[trajectory_s1, trajectory_s2, trajectory_d], loc='upper left')
 
 
 trajectory_v1, = ax2.plot([i[0] for i in actual_stage1_trajectory ], [i[1]*5./18 for i in actual_stage1_trajectory], label='S1')
@@ -704,7 +704,7 @@ tmp_plot_2, = ax2.plot([ti for ti,x0i in trajectory if ti < 600], [sqrt( x0i[POS
 #tmp_plot_vt_s, = ax2.plot([ti for ti,x0i in trajectory], [v_terminal - omega*Re for ti,x0i in trajectory], ls='dashed', alpha=0.4)
 ax2.set_xlabel('Time (s)')
 ax2.set_ylabel('Speed (m/s)')
-ax2.legend(handles=[trajectory_v1, tmp_plot_2], loc='upper left')
+ax2.legend(handles=[trajectory_v1, trajectory_v2, tmp_plot_2], loc='upper left')
 
 
 #aoa, = ax3.plot([ti for ti,x0i in trajectory], [x0i[TMP_POS_ANGLE_OF_ATTACK] for ti,x0i in trajectory], label='')
